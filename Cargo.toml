@@ -1,0 +1,76 @@
+[package]
+name = "tikv"
+version = "0.0.1"
+keywords = ["KV", "distributed-systems", "raft"]
+
+[features]
+default = []
+dev = ["clippy"]
+static-link = ["rocksdb/static-link"]
+portable = ["rocksdb/portable"]
+
+[lib]
+name = "tikv"
+
+[[bin]]
+name = "tikv-server"
+
+[dependencies]
+log = "0.3"
+byteorder = "0.5"
+rand = "0.3"
+quick-error = "0.2"
+tempdir = "0.3"
+uuid = { version = "0.3", features = ["v4"] }
+time = "0.1"
+threadpool = "1.0.0"
+toml = "0.1"
+num = "0.1"
+libc = "0.2.11"
+crc = "1.2"
+fs2 = "0.4"
+clippy = {version = "*", optional = true}
+rustc-serialize = "0.3"
+protobuf = "1.0.23"
+bytes  = "0.3.0"
+nix = "0.6.0"
+utime = "0.1"
+chrono = "0.2"
+lazy_static = "0.2.1"
+backtrace = "0.2.3"
+clap = "2"
+url = "1.2"
+getopts = "0.2"
+regex = "0.1"
+
+[target.'cfg(unix)'.dependencies]
+signal = "0.2"
+
+[dependencies.rocksdb]
+git = "https://github.com/pingcap/rust-rocksdb.git"
+
+[dependencies.kvproto]
+git = "https://github.com/scottzzq/kvproto.git"
+rev = "a68df65520c51c404e41e5ae4aa895384b01a469"
+
+[dependencies.tipb]
+git = "https://github.com/pingcap/tipb.git"
+
+[dependencies.mio]
+git = "https://github.com/carllerche/mio.git"
+rev="7d4778f226e3f2479e802ccb0934e1e8db3b31a1"
+
+[dependencies.prometheus]
+git = "https://github.com/pingcap/rust-prometheus.git"
+default-features = false
+features = ["nightly", "push"]
+
+[profile.dev]
+opt-level = 0  # Controls the --opt-level the compiler builds with
+debug = true   # Controls whether the compiler passes `-g`
+codegen-units = 4
+
+# The release profile, used for `cargo build --release`
+[profile.release]
+opt-level = 3
+debug = true
