@@ -70,6 +70,7 @@ pub struct InvokeContext {
     last_term: u64,
     engine: Arc<DB>,
 }
+
 impl InvokeContext {
     pub fn new(store: &PeerStorage) -> InvokeContext {
         InvokeContext {
@@ -195,8 +196,7 @@ fn init_last_term(engine: &DB,
 
 
 fn storage_error<E>(error: E) -> raft::Error
-    where E: Into<Box<error::Error + Send + Sync>>
-{
+    where E: Into<Box<error::Error + Send + Sync>>{
     raft::Error::Store(StorageError::Other(error.into()))
 }
 
@@ -379,241 +379,6 @@ impl PeerStorage{
     // Append the given entries to the raft log using previous last index or self.last_index.
     // Return the new last index for later update. After we commit in engine, we can set last_index
     // to the return one.
-    // pub fn append(&mut self, ctx: &mut InvokeContext, entries: &[Entry]) -> Result<u64> {
-    //     debug!("{} append {} entries", self.tag, entries.len());
-    //     let prev_last_index = ctx.raft_state.get_last_index();
-    //     if entries.len() == 0 {
-    //         return Ok(prev_last_index);
-    //     }
-    //     let handle = try!(rocksdb::get_cf_handle(&self.engine, CF_RAFT));
-    //     // for entry in entries {
-    //     //     info!("PeerStorage append origin Entry:[{:?}]", entry);
-    //     //     if !entry.has_data(){
-    //     //         try!(ctx.wb.put_msg_cf(handle,
-    //     //             &keys::raft_log_key(self.get_region_id(), entry.get_index()),
-    //     //             entry));
-    //     //         continue;
-    //     //     }
-
-    //     //     match entry.get_entry_type() {
-    //     //         //存储请求，需要转换
-    //     //         //先将Entry写入到volume中，index写入volume.idx中
-    //     //         //再将key写入rocksdb中
-    //     //         eraftpb::EntryType::EntryNormal => {
-    //     //             let data = entry.get_data();
-    //     //             let cmd_req = try!(protobuf::parse_from_bytes::<RaftCmdRequest>(data));
-    //     //             let requests = cmd_req.get_requests();
-    //     //             for req in requests {
-    //     //                 let cmd_type = req.get_cmd_type();
-    //     //                 match cmd_type {
-    //     //                     CmdType::Get => {
-    //     //                         //self.do_get(ctx, req)
-    //     //                     }
-    //     //                     CmdType::Put => {
-    //     //                         //write to volume
-    //     //                         let (key, value) = (req.get_put().get_key(), req.get_put().get_value());
-
-    //     //                         let needle_size = value.len() as u64;
-    //     //                         let needle_offset = self.volume_file_offset;
-    //     //                         let cache_item = CacheItem{
-    //     //                             offset: needle_offset,
-    //     //                             size: needle_size,
-    //     //                         };
-                        
-    //     //                         let mut buf = vec![0;24];
-    //     //                         BigEndian::write_u64(&mut buf[0..8], key);
-    //     //                         BigEndian::write_u64(&mut buf[8..16], cache_item.offset);
-    //     //                         BigEndian::write_u64(&mut buf[16..24], cache_item.size);
-    //     //                         self.volume_idx_file.write(&buf);
-    //     //                         self.volume_file_offset += needle_size;
-    //     //                         self.needle_cache.insert(key, cache_item);                                
-
-                                
-    //     //                         let mut new_entry = Entry::new();
-    //     //                         new_entry.set_term(entry.get_term());
-    //     //                         new_entry.set_index(entry.get_index());
-    //     //                         new_entry.set_entry_type(entry.get_entry_type());
-    //     //                         new_entry.set_key(key);
-
-    //     //                         let mut raft_cmd = try!(protobuf::parse_from_bytes::<RaftCmdRequest>(entry.get_data()));
-    //     //                         let header = raft_cmd.take_header();
-
-    //     //                         let mut new_put = PutRequest::new();
-    //     //                         new_put.set_key(req.get_put().get_key());
-    //     //                         new_put.set_value(req.get_put().get_value().to_vec());
-
-    //     //                         let mut new_req = Request::new();
-    //     //                         new_req.set_cmd_type(CmdType::Put);
-    //     //                         new_req.set_put(new_put);
-
-    //     //                         let mut new_reqs = Vec::with_capacity(1);
-    //     //                         new_reqs.push(new_req);
-
-    //     //                         let mut new_raft_cmd = RaftCmdRequest::new();
-    //     //                         new_raft_cmd.set_header(header);
-    //     //                         new_raft_cmd.set_requests(RepeatedField::from_vec(new_reqs));
-
-    //     //                         new_entry.set_data(try!(new_raft_cmd.write_to_bytes()));
-
-    //     //                         info!("PeerStorage put new Entry:[{:?}]", new_entry);
-    //     //                         try!(ctx.wb.put_msg_cf(handle,
-    //     //                             &keys::raft_log_key(self.get_region_id(), entry.get_index()),
-    //     //                             entry));
-    //     //                         // try!(ctx.wb.put_msg_cf(handle,
-    //     //                         //    &keys::raft_log_key(self.get_region_id(), new_entry.get_index()),
-    //     //                         //    &new_entry));
-
-    //     //                     }
-    //     //                     CmdType::Delete => { 
-    //     //                        // self.do_get(ctx, req),
-    //     //                     }
-    //     //                     CmdType::Snap => {
-    //     //                        // self.do_delete(ctx, req),
-    //     //                     }
-    //     //                     CmdType::Invalid => {
-    //     //                        // Err(box_err!("invalid cmd type, message maybe currupted")),
-    //     //                     }
-    //     //                  }
-    //     //              }
-    //     //         }
-    //     //         //ConfChange直接写入
-    //     //         eraftpb::EntryType::EntryConfChange => {
-    //     //             try!(ctx.wb.put_msg_cf(handle,
-    //     //                            &keys::raft_log_key(self.get_region_id(), entry.get_index()),
-    //     //                            entry));
-    //     //         }
-    //     //     }
-    //     // }
-
-    //     for entry in entries {
-    //         try!(ctx.wb.put_msg_cf(handle,
-    //                                &keys::raft_log_key(self.get_region_id(), entry.get_index()),
-    //                                entry));
-    //     }
-        
-    //     let e = entries.last().unwrap();
-    //     let last_index = e.get_index();
-    //     let last_term = e.get_term();
-
-    //     // Delete any previously appended log entries which never committed.
-    //     for i in (last_index + 1)..(prev_last_index + 1) {
-    //         try!(ctx.wb.delete_cf(handle, &keys::raft_log_key(self.get_region_id(), i)));
-    //     }
-
-    //     ctx.raft_state.set_last_index(last_index);
-    //     ctx.last_term = last_term;
-    //     Ok(last_index)
-    // }
-
-    // pub fn entries(&mut self, low: u64, high: u64, max_size: u64) -> raft::Result<Vec<Entry>> {
-    //     try!(self.check_range(low, high));
-    //     let mut ents = Vec::with_capacity((high - low) as usize);
-    //     if low == high {
-    //         return Ok(ents);
-    //     }
-    //     let mut total_size: u64 = 0;
-    //     let mut next_index = low;
-    //     let mut exceeded_max_size = false;
-
-    //     let start_key = keys::raft_log_key(self.get_region_id(), low);
-
-    //     //先获取到key，再从volume中读取
-    //     if low + 1 == high {
-    //         // If election happens in inactive regions, they will just try
-    //         // to fetch one empty log.
-    //         let handle = self.engine.cf_handle(CF_RAFT).unwrap();
-    //         match box_try!(self.engine.get_cf(handle, &start_key)) {
-    //             None => return Err(RaftError::Store(StorageError::Unavailable)),
-    //             Some(v) => {
-    //                 let mut entry = Entry::new();
-    //                 box_try!(entry.merge_from_bytes(&v));
-    //                 assert_eq!(entry.get_index(), low);
-
-    //                 // let mut new_entry = Entry::new();
-    //                 // let key = entry.get_key();                    
-    //                 // let mut res;
-    //                 // if self.needle_cache.contains_key(&key){
-    //                 //     if let Some(item) = self.needle_cache.get(&key){
-    //                 //         debug!("do_get key:[{}] exists! offset:[{}] size:[{}] volume_file:[{:?}]", 
-    //                 //             key, item.offset, item.size, self.volume_read_file);
-    //                 //         res = Vec::<u8>::with_capacity(item.size as usize);
-    //                 //         unsafe { res.set_len(item.size as usize); }
-    //                 //         try!(self.volume_read_file.seek(SeekFrom::Start(item.offset)));
-    //                 //         debug!("file:[{:?}] seek success!", self.volume_read_file);
-    //                 //         let bytes_read = try!(self.volume_read_file.read(&mut res[..]));
-    //                 //     }
-    //                 // }else{
-    //                 //     debug!("do_get key:[{}] not exists!", key);
-    //                 // }
-
-    //                 return Ok(vec![entry]);
-    //             }
-    //         }
-    //     }
-
-    //     let end_key = keys::raft_log_key(self.get_region_id(), high);
-    //     try!(self.engine.scan_cf(CF_RAFT,
-    //                              &start_key,
-    //                              &end_key,
-    //                              &mut |_, value| {
-    //         // enum EntryType {
-    //         //     EntryNormal     = 0;
-    //         //     EntryConfChange = 1;
-    //         // }
-    //         // message Entry {
-    //         //     optional EntryType  entry_type  = 1; 
-    //         //     optional uint64     term        = 2; 
-    //         //     optional uint64     index       = 3; 
-    //         //     optional bytes      data        = 4;
-    //         // }
-    //         let mut entry = Entry::new();
-    //         try!(entry.merge_from_bytes(value));
-    //         // May meet gap or has been compacted.
-    //         if entry.get_index() != next_index {
-    //             return Ok(false);
-    //         }
-
-    //         // ////////////////////Entry
-    //         // let mut new_entry = Entry::new();
-    //         // let key = entry.get_key();                    
-    //         // let mut res;
-    //         // if self.needle_cache.contains_key(&key){
-    //         //     if let Some(item) = self.needle_cache.get(&key){
-    //         //         debug!("do_get key:[{}] exists! offset:[{}] size:[{}] volume_file:[{:?}]", 
-    //         //             key, item.offset, item.size, self.volume_read_file);
-    //         //         res = Vec::<u8>::with_capacity(item.size as usize);
-    //         //         unsafe { res.set_len(item.size as usize); }
-    //         //         try!(self.volume_read_file.seek(SeekFrom::Start(item.offset)));
-    //         //         debug!("file:[{:?}] seek success!", self.volume_read_file);
-    //         //         let bytes_read = try!(self.volume_read_file.read(&mut res[..]));
-    //         //     }
-    //         // }else{
-    //         //     debug!("do_get key:[{}] not exists!", key);
-    //         // }
-
-
-    //         next_index += 1;
-    //         total_size += value.len() as u64;
-    //         exceeded_max_size = total_size > max_size;
-    //         if !exceeded_max_size || ents.is_empty() {
-    //             ents.push(entry);
-    //         }
-    //         Ok(!exceeded_max_size)
-    //     }));
-
-    //     // If we get the correct number of entries the total size exceeds max_size, returns.
-    //     if ents.len() == (high - low) as usize || exceeded_max_size {
-    //         return Ok(ents);
-    //     }
-
-    //     // Here means we don't fetch enough entries.
-    //     Err(RaftError::Store(StorageError::Unavailable))
-    // }
-
-
-    // Append the given entries to the raft log using previous last index or self.last_index.
-    // Return the new last index for later update. After we commit in engine, we can set last_index
-    // to the return one.
     pub fn append(&mut self, ctx: &mut InvokeContext, entries: &[Entry]) -> Result<u64> {
         debug!("{} append {} entries", self.tag, entries.len());
         let prev_last_index = ctx.raft_state.get_last_index();
@@ -641,7 +406,7 @@ impl PeerStorage{
                 continue;
             }
 
-            match entry.get_entry_type() {
+             match entry.get_entry_type() {
                 //存储请求，需要转换
                 //先将Entry写入到volume中，index写入volume.idx中
                 //再将key写入rocksdb中
@@ -649,14 +414,24 @@ impl PeerStorage{
                     let data = entry.get_data();
                     let cmd_req = try!(protobuf::parse_from_bytes::<RaftCmdRequest>(data));
                     let requests = cmd_req.get_requests();
+                    
+                    let mut raft_cmd = try!(protobuf::parse_from_bytes::<RaftCmdRequest>(data));
+                    let header = raft_cmd.take_header();
+
+                    let mut new_entry = Entry::new();
+                    new_entry.set_term(entry.get_term());
+                    new_entry.set_index(entry.get_index());
+                    new_entry.set_entry_type(entry.get_entry_type());
+
+                    let mut new_reqs = Vec::with_capacity(requests.len());
+
                     for req in requests {
                         let cmd_type = req.get_cmd_type();
                         match cmd_type {
                             CmdType::Get => {
-                                //self.do_get(ctx, req)
+                                new_reqs.push(req.clone());
                             }
                             CmdType::Put => {
-                                //write to volume
                                 let (key, value) = (req.get_put().get_key(), req.get_put().get_value());
                                 self.volume_file.write(value);
                                 let needle_size = value.len() as u64;
@@ -673,61 +448,48 @@ impl PeerStorage{
                                 self.volume_idx_file.write(&buf);
                                 self.volume_file_offset += needle_size;
                                 self.needle_cache.insert(key, cache_item);                                
- 
-                                let mut new_entry = Entry::new();
-                                new_entry.set_term(entry.get_term());
-                                new_entry.set_index(entry.get_index());
-                                new_entry.set_entry_type(entry.get_entry_type());
-                                new_entry.set_key(key);
-
-                                let mut raft_cmd = try!(protobuf::parse_from_bytes::<RaftCmdRequest>(entry.get_data()));
-                                let header = raft_cmd.take_header();
 
                                 let mut new_put = PutRequest::new();
                                 new_put.set_key(req.get_put().get_key());
-                                new_put.set_value(req.get_put().get_value().to_vec());
+                                //new_put.set_value(req.get_put().get_value().to_vec());
 
                                 let mut new_req = Request::new();
                                 new_req.set_cmd_type(CmdType::Put);
                                 new_req.set_put(new_put);
 
-                                let mut new_reqs = Vec::with_capacity(1);
                                 new_reqs.push(new_req);
-
-                                let mut new_raft_cmd = RaftCmdRequest::new();
-                                new_raft_cmd.set_header(header);
-                                new_raft_cmd.set_requests(RepeatedField::from_vec(new_reqs));
-
-                                new_entry.set_data(try!(new_raft_cmd.write_to_bytes()));
-
-                                info!("PeerStorage append new Entry:[{:?}]", new_entry);
-                                try!(ctx.wb.put_msg_cf(handle,
-                                    &keys::raft_log_key(self.get_region_id(), new_entry.get_index()),
-                                    &new_entry));
                             }
                             CmdType::Delete => { 
-                               // self.do_get(ctx, req),
+                               new_reqs.push(req.clone());
                             }
                             CmdType::Snap => {
-                               // self.do_delete(ctx, req),
+                                new_reqs.push(req.clone());
                             }
                             CmdType::Invalid => {
-                               // Err(box_err!("invalid cmd type, message maybe currupted")),
+                                new_reqs.push(req.clone());
                             }
                          }
-                     }
+                    }
+                    let mut new_raft_cmd = RaftCmdRequest::new();
+                    new_raft_cmd.set_header(header);
+                    new_raft_cmd.set_requests(RepeatedField::from_vec(new_reqs));
+
+                    new_entry.set_data(try!(new_raft_cmd.write_to_bytes()));
+                    info!("PeerStorage append Entry append new :[{:?}]", new_entry);
+                    try!(ctx.wb.put_msg_cf(handle,
+                                    &keys::raft_log_key(self.get_region_id(), new_entry.get_index()),
+                                    &new_entry));
+                    
                 }
-                //ConfChange直接写入
-                eraftpb::EntryType::EntryConfChange => {
+                 //ConfChange直接写入
+                 eraftpb::EntryType::EntryConfChange => {
                     info!("PeerStorage append new Entry:[{:?}]", entry);
                     try!(ctx.wb.put_msg_cf(handle,
                                    &keys::raft_log_key(self.get_region_id(), entry.get_index()),
                                    entry));
-                }
+                 }
             }
         }
-        
-
         let e = entries.last().unwrap();
         let last_index = e.get_index();
         let last_term = e.get_term();
@@ -760,7 +522,6 @@ impl PeerStorage{
                                  &start_key,
                                  &end_key,
                                  &mut |_, value| {
-
             let mut entry = Entry::new();
             try!(entry.merge_from_bytes(value));
 
@@ -775,41 +536,62 @@ impl PeerStorage{
                         new_entry.set_term(entry.get_term());
                         new_entry.set_index(entry.get_index());
                         new_entry.set_entry_type(entry.get_entry_type());
-                        new_entry.set_key(entry.get_key());
-            
-                        ////////////////////New Entry
-                        let key = entry.get_key();                    
-                        let mut res = Vec::new();
-                        if self.needle_cache.contains_key(&key){
-                            if let Some(item) = self.needle_cache.get(&key){
-                                debug!("do_get key:[{}] exists! offset:[{}] size:[{}] volume_file:[{:?}]", 
-                                    key, item.offset, item.size, volume_read_file);
-                                res = Vec::<u8>::with_capacity(item.size as usize);
-                                unsafe { res.set_len(item.size as usize); }
-                                try!(volume_read_file.seek(SeekFrom::Start(item.offset)));
-                                debug!("file:[{:?}] seek success!", volume_read_file);
-                                let bytes_read = try!(volume_read_file.read(&mut res[..]));
-                            }
-                        }else{
-                            return Ok(false);
-                        }
-                        let mut raft_cmd = try!(protobuf::parse_from_bytes::<RaftCmdRequest>(entry.get_data()));
+
+                        let data = entry.get_data();
+                        let cmd_req = try!(protobuf::parse_from_bytes::<RaftCmdRequest>(data));
+                        let requests = cmd_req.get_requests();
+                    
+                        let mut raft_cmd = try!(protobuf::parse_from_bytes::<RaftCmdRequest>(data));
                         let header = raft_cmd.take_header();
+
+                        let mut new_reqs = Vec::with_capacity(requests.len());
+
+                        for req in requests {
+                            let cmd_type = req.get_cmd_type();
+                            match cmd_type {
+                                CmdType::Get => {
+                                    new_reqs.push(req.clone());
+                                }
+                                CmdType::Put => {
+                                    let key = req.get_put().get_key();
+                                    let mut res = Vec::new();
+                                    if self.needle_cache.contains_key(&key){
+                                        if let Some(item) = self.needle_cache.get(&key){
+                                            debug!("do_get key:[{}] exists! offset:[{}] size:[{}] volume_file:[{:?}]", 
+                                                key, item.offset, item.size, volume_read_file);
+                                            res = Vec::<u8>::with_capacity(item.size as usize);
+                                            unsafe { res.set_len(item.size as usize); }
+                                            try!(volume_read_file.seek(SeekFrom::Start(item.offset)));
+                                            let bytes_read = try!(volume_read_file.read(&mut res[..]));
+                                        }
+                                    }else{
+                                        return Ok(false);
+                                    }
+                                    let mut new_put = PutRequest::new();
+                                    new_put.set_key(entry.get_key());
+                                    new_put.set_value(res.to_vec());
             
-                        let mut new_put = PutRequest::new();
-                        new_put.set_key(entry.get_key());
-                        new_put.set_value(res.to_vec());
+                                    let mut new_req = Request::new();
+                                    new_req.set_cmd_type(CmdType::Put);
+                                    new_req.set_put(new_put);
             
-                        let mut new_req = Request::new();
-                        new_req.set_cmd_type(CmdType::Put);
-                        new_req.set_put(new_put);
-            
-                        let mut new_reqs = Vec::with_capacity(1);
-                        new_reqs.push(new_req);
-        
+                                    new_reqs.push(new_req);
+                                }
+                                CmdType::Delete => { 
+                                   new_reqs.push(req.clone());
+                                }
+                                CmdType::Snap => {
+                                    new_reqs.push(req.clone());
+                                }
+                                CmdType::Invalid => {
+                                    new_reqs.push(req.clone());
+                                }
+                             }
+                        }
                         let mut new_raft_cmd = RaftCmdRequest::new();
                         new_raft_cmd.set_header(header);
                         new_raft_cmd.set_requests(RepeatedField::from_vec(new_reqs));
+
                         new_entry.set_data(try!(new_raft_cmd.write_to_bytes()));
                     }  
                     eraftpb::EntryType::EntryConfChange => {
