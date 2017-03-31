@@ -296,7 +296,6 @@ impl PeerStorage{
                                     while true {
                                         let mut header = vec![0;24];
                                         volume_idx_read_file.read_exact(&mut header);
-                                        println!("header:[{:?}]", header);
                                         let mut reader = header.as_slice();
                                         let key = try!(reader.read_u64::<BigEndian>());
                                         let offset = try!(reader.read_u64::<BigEndian>());

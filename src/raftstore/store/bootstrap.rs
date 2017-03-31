@@ -79,21 +79,10 @@ pub fn bootstrap_region(db: &DB,
     region.mut_region_epoch().set_version(INIT_EPOCH_VER);
     region.mut_region_epoch().set_conf_ver(INIT_EPOCH_CONF_VER);
 
-    //dev
-    let mut peer1 = metapb::Peer::new();
-    peer1.set_store_id(1);
-    peer1.set_id(4);
-    region.mut_peers().push(peer1);
-
-    let mut peer2 = metapb::Peer::new();
-    peer2.set_store_id(2);
-    peer2.set_id(5);
-    region.mut_peers().push(peer2);
-
-    // let mut peer3 = metapb::Peer::new();
-    // peer3.set_store_id(3);
-    // peer3.set_id(6);
-    // region.mut_peers().push(peer3);
+    let mut peer = metapb::Peer::new();
+    peer.set_store_id(store_id);
+    peer.set_id(peer_id);
+    region.mut_peers().push(peer);
 
     try!(write_region(db, &region));
 

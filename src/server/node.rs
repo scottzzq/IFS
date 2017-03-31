@@ -29,23 +29,13 @@ use protobuf::RepeatedField;
 use util::transport::SendCh;
 
 use raftstore::store::{self, Msg, Store, Config as StoreConfig, SnapManager, keys, StoreChannel, Transport};
-//                        k Peekable, Transport, SnapManager};
 use raftstore::store::engine::Peekable;
 use super::Result;
 use super::config::Config;
-//use storage::{Storage, RaftKv};
 use super::transport::RaftStoreRouter;
 
 const MAX_CHECK_CLUSTER_BOOTSTRAPPED_RETRY_COUNT: u64 = 60;
 const CHECK_CLUSTER_BOOTSTRAPPED_RETRY_SECONDS: u64 = 3;
-
-// pub fn create_raft_storage<S>(router: S, db: Arc<DB>, cfg: &Config) -> Result<Storage>
-//     where S: RaftStoreRouter + 'static
-// {
-//     let engine = box RaftKv::new(db, router);
-//     let store = try!(Storage::from_engine(engine, &cfg.storage));
-//     Ok(store)
-// }
 
 // Node is a wrapper for raft store.
 // TODO: we will rename another better name like RaftStore later.
@@ -55,7 +45,7 @@ pub struct Node<C: PdClient + 'static> {
     store_cfg: StoreConfig,
     store_handle: Option<thread::JoinHandle<()>>,
     ch: SendCh<Msg>,
-    store_id: u64,
+    //store_id: u64,
     pd_client: Arc<C>,
 }
 
@@ -91,7 +81,7 @@ impl<C> Node<C>
             store_handle: None,
             pd_client: pd_client,
             ch: ch,
-            store_id: cfg.store_id,
+            //store_id: cfg.store_id,
             //snapshot_status_sender: None,
         }
     }
@@ -103,8 +93,7 @@ impl<C> Node<C>
                     trans: T,
                     snap_mgr: SnapManager)
                     -> Result<()>
-            where T: Transport + 'static
-    {
+            where T: Transport + 'static {
         let bootstrapped = try!(self.check_cluster_bootstrapped());
         
         //检查当前Store Server是否被初始化了
@@ -115,13 +104,6 @@ impl<C> Node<C>
             store_id = try!(self.bootstrap_store(&db));
             self.store.set_id(store_id);
             info!("init store_id:{}", store_id);
-            //for dev
-            if store_id != 3{
-                let region = try!(self.bootstrap_first_region(&db, store_id));
-                if !bootstrapped {
-                    try!(self.bootstrap_cluster(&db, region));
-                }
-            }
         } else {
             //store已经被初始化，但是集群还没有初始化
             if !bootstrapped {
@@ -135,6 +117,12 @@ impl<C> Node<C>
                 info!("start store store_id:{}", store_id);
             }
         }
+
+        if !bootstrapped {
+            let region = try!(self.bootstrap_first_region(&db, store_id));
+            try!(self.bootstrap_cluster(&db, region));
+        }
+
         self.store.set_id(store_id);
 
         // inform pd.
@@ -179,28 +167,24 @@ impl<C> Node<C>
 
     fn alloc_id(&self) -> Result<u64> {
         let id = try!(self.pd_client.alloc_id());
-        let id = rand::thread_rng().gen_range(1, 1000);
         Ok(id)
     }
 
     fn bootstrap_store(&self, db: &DB) -> Result<u64> {
-        //let store_id = try!(self.alloc_id());
-        //dev
-        let store_id = self.store_id;
+        let store_id = try!(self.alloc_id());
         info!("alloc store id {} ", store_id);
         try!(store::bootstrap_store(db, self.cluster_id, store_id));
         Ok(store_id)
     }
 
     fn bootstrap_first_region(&self, db: &DB, store_id: u64) -> Result<metapb::Region> {
-        //let region_id = try!(self.alloc_id());
-        let region_id = 100;
+        let region_id = try!(self.alloc_id());
         info!("alloc first region id {} for cluster {}, store {}",
               region_id,
               self.cluster_id,
               store_id);
         
-        let peer_id = store_id; //try!(self.alloc_id());
+        let peer_id = try!(self.alloc_id());
         info!("alloc first peer id {} for first region {}",
               peer_id,
               region_id);
@@ -238,15 +222,6 @@ impl<C> Node<C>
         }
         Err(box_err!("check cluster bootstrapped failed"))
     }
-
-    // // fn start_store<T>(&mut self,
-    // //                   mut event_loop: EventLoop<Store<T, C>>,
-    // //                   store_id: u64,
-    // //                   db: Arc<DB>,
-    // //                   trans: T,
-    // //                   snap_mgr: SnapManager)
-    // //                   -> Result<()>
-    // //     where T: Transport + 'static
 
     fn start_store<T>(&mut self,
                       mut event_loop: EventLoop<Store<T, C>>,
@@ -291,21 +266,6 @@ impl<C> Node<C>
         self.store_handle = Some(h);
         Ok(())
     }
-
-    // fn stop_store(&mut self, store_id: u64) -> Result<()> {
-    //     info!("stop raft store {} thread", store_id);
-    //     let h = match self.store_handle.take() {
-    //         None => return Ok(()),
-    //         Some(h) => h,
-    //     };
-
-    //     box_try!(self.ch.send(Msg::Quit));
-    //     if let Err(e) = h.join() {
-    //         return Err(box_err!("join store {} thread err {:?}", store_id, e));
-    //     }
-
-    //     Ok(())
-    // }
 
     pub fn stop(&mut self) -> Result<()> {
         let store_id = self.store.get_id();

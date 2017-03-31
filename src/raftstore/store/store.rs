@@ -32,7 +32,6 @@ use util::transport::SendCh;
 use util::rocksdb;
 use util::SlowTimer;
 use raftstore::store::engine::{Iterable,Peekable};
-//use super::peer::{Peer, PendingCmd, ReadyResult, ExecResult, StaleState};
 
 use super::worker::{PdRunner, PdTask, RegionTask, RegionRunner};
 
@@ -1111,7 +1110,6 @@ impl<T: Transport, C: PdClient> mio::Handler for Store<T, C> {
     fn timeout(&mut self, event_loop: &mut EventLoop<Self>, timeout: Tick) {
          match timeout {
             Tick::Raft => {
-                //info!("timeout Tick::Raft");
                 self.on_raft_base_tick(event_loop);
             },
             Tick::RaftLogGc => {}, //self.on_raft_gc_log_tick(event_loop),
@@ -1119,12 +1117,10 @@ impl<T: Transport, C: PdClient> mio::Handler for Store<T, C> {
             Tick::CompactCheck => {},//self.on_compact_check_tick(event_loop),
             //Region心跳定时器
             Tick::PdHeartbeat => {
-                info!("timeout Tick::PdHeartbeat");
                 self.on_pd_heartbeat_tick(event_loop);
             },
             //Store心跳定时器
             Tick::PdStoreHeartbeat => {
-                info!("timeout Tick::PdStoreHeartbeat");
                 self.on_pd_store_heartbeat_tick(event_loop);
             },
             Tick::SnapGc => {},//self.on_snap_mgr_gc(event_loop),
@@ -1143,7 +1139,6 @@ impl<T: Transport, C: PdClient> mio::Handler for Store<T, C> {
         self.pending_regions.clear();
     }
 }
-
 
 /////////util///////////
 pub fn get_uuid_from_req(cmd: &RaftCmdRequest) -> Option<Uuid> {

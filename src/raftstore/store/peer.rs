@@ -308,80 +308,6 @@ impl Peer {
 
         let raft_group = try!(RawNode::new(&raft_cfg, ps, &[]));
 
-        //peer.load_all_coprocessors();
-        // let mut volume_file: File;
-        // let mut volume_idx_file: File;
-        // let mut volume_read_file: File;
-        // let mut volume_idx_read_file: File;
-
-        // let attr = fs::metadata(&cfg.volume_index_root_path);
-        // let volume_file_offset:u64;
-        // let mut needle_cache = HashMap::new();
-
-        // match attr {
-        //     Ok(v) => {
-        //         if !v.is_dir() {
-        //             error!("volume_index_root_path:[{}] is not valid!", cfg.volume_index_root_path);
-        //             return Err(box_err!("volume_index_root_path is not dir"));
-        //         } else{
-        //             let mut v_path: String = cfg.volume_index_root_path.clone();
-        //             v_path.push_str("/");
-        //             v_path.push_str(&region.get_id().to_string());
-        //             let volume_path = Path::new(&v_path);
-        //             match OpenOptions::new().create(true).write(true).open(volume_path) {
-        //                 Ok(f) => {
-        //                     volume_read_file = try!(File::open(volume_path));
-        //                     let metadata = try!(fs::metadata(volume_path));
-        //                     volume_file_offset = metadata.len();
-        //                     volume_file = f;
-        //                     volume_file.seek(SeekFrom::End(0));
-
-        //                     let mut i_path: String = cfg.volume_index_root_path.clone();
-        //                     i_path.push_str("/");
-        //                     i_path.push_str(&region.get_id().to_string());
-        //                     i_path.push_str(".idx");
-        //                     let volume_idx_path = Path::new(&i_path);
-        //                     match OpenOptions::new().create(true).write(true).open(volume_idx_path) {
-        //                         Ok(f) => {
-        //                             volume_idx_file = f;
-        //                             volume_idx_file.seek(SeekFrom::End(0));
-
-        //                             volume_idx_read_file = try!(File::open(volume_idx_path));
-        //                             while true {
-        //                                 let mut header = vec![0;24];
-        //                                 volume_idx_read_file.read_exact(&mut header);
-        //                                 println!("header:[{:?}]", header);
-        //                                 let mut reader = header.as_slice();
-        //                                 let key = try!(reader.read_u64::<BigEndian>());
-        //                                 let offset = try!(reader.read_u64::<BigEndian>());
-        //                                 let size = try!(reader.read_u64::<BigEndian>());
-        //                                 debug!("Init volume idx, key:[{}] offset:[{}] size:[{}]", key, offset, size);
-        //                                 needle_cache.insert(key, CacheItem{offset:offset, size : size});
-        //                                 if size == 0{
-        //                                     break;
-        //                                 }
-        //                                 //debug!("Init volume idx, key:[{}] offset:[{}] size:[{}]", key, offset, size);
-        //                             }
-        //                         },
-        //                         Err(e) => {
-        //                             error!("create volume_idx_file failed");
-        //                             return Err(box_err!("create volume_idx_file failed"));
-        //                         },
-        //                     }
-        //                 },
-        //                 Err(e) => {
-        //                     error!("create volume_file failed");
-        //                     return Err(box_err!("create volume_file failed"));
-        //                 },
-        //             }
-        //         }
-        //     }
-        //     Err(e) => {
-        //         error!("volume_index_root_path:[{}] is not exist!", cfg.volume_index_root_path);
-        //         return Err(box_err!("volume_index_root_path is not exist!"));
-        //     }
-        // }
-
         let mut peer = Peer {
             engine: store.engine(),
             peer: new_peer(store_id, peer_id),
@@ -397,24 +323,10 @@ impl Peer {
             pending_remove: false,
             leader_missing_time: Some(Instant::now()),
             tag: tag,
-            // last_compacted_idx: 0,
-            // consistency_state: ConsistencyState {
-            //     last_check_time: Instant::now(),
-            //     index: INVALID_INDEX,
-            //     hash: vec![],
-            // },
-            // raft_log_size_hint: 0,
             raft_entry_max_size: cfg.raft_entry_max_size,
             leader_lease_expired_time: None,
             election_timeout: TimeDuration::milliseconds(cfg.raft_base_tick_interval as i64) *
                               cfg.raft_election_timeout_ticks as i32,
-            // volume_file: volume_file,
-            // volume_idx_file: volume_idx_file,
-            // volume_read_file: volume_read_file,
-            // needle_cache: needle_cache, 
-            // volume_file_offset:volume_file_offset,
-            // written_bytes: 0,
-            // written_keys: 0,
         };
 
         // If this region has only one peer and I am the one, campaign directly.
