@@ -306,7 +306,6 @@ impl PeerStorage{
                                         if size == 0{
                                             break;
                                         }
-                                        //debug!("Init volume idx, key:[{}] offset:[{}] size:[{}]", key, offset, size);
                                     }
                                 },
                                 Err(e) => {
@@ -434,6 +433,7 @@ impl PeerStorage{
                             CmdType::Put => {
                                 let (key, value) = (req.get_put().get_key(), req.get_put().get_value());
                                 self.volume_file.write(value);
+        
                                 let needle_size = value.len() as u64;
                                 let needle_offset = self.volume_file_offset;
                                 let cache_item = CacheItem{
@@ -445,13 +445,15 @@ impl PeerStorage{
                                 BigEndian::write_u64(&mut buf[0..8], key);
                                 BigEndian::write_u64(&mut buf[8..16], cache_item.offset);
                                 BigEndian::write_u64(&mut buf[16..24], cache_item.size);
+
                                 self.volume_idx_file.write(&buf);
                                 self.volume_file_offset += needle_size;
-                                self.needle_cache.insert(key, cache_item);                                
+                                self.needle_cache.insert(key, cache_item);                               
 
                                 let mut new_put = PutRequest::new();
                                 new_put.set_key(req.get_put().get_key());
-                                //new_put.set_value(req.get_put().get_value().to_vec());
+                                new_put.set_offset(needle_offset);
+                                new_put.set_size(needle_size);
 
                                 let mut new_req = Request::new();
                                 new_req.set_cmd_type(CmdType::Put);
@@ -553,22 +555,19 @@ impl PeerStorage{
                                     new_reqs.push(req.clone());
                                 }
                                 CmdType::Put => {
-                                    let key = req.get_put().get_key();
+                                    let put_req = req.get_put();
+                                    let key = put_req.get_key();
+                                    let needle_offset = put_req.get_offset();
+                                    let needle_size = put_req.get_size();
+
                                     let mut res = Vec::new();
-                                    if self.needle_cache.contains_key(&key){
-                                        if let Some(item) = self.needle_cache.get(&key){
-                                            debug!("do_get key:[{}] exists! offset:[{}] size:[{}] volume_file:[{:?}]", 
-                                                key, item.offset, item.size, volume_read_file);
-                                            res = Vec::<u8>::with_capacity(item.size as usize);
-                                            unsafe { res.set_len(item.size as usize); }
-                                            try!(volume_read_file.seek(SeekFrom::Start(item.offset)));
-                                            let bytes_read = try!(volume_read_file.read(&mut res[..]));
-                                        }
-                                    }else{
-                                        return Ok(false);
-                                    }
+                                    res = Vec::<u8>::with_capacity(needle_size as usize);
+                                    unsafe { res.set_len(needle_size as usize); }
+                                    try!(volume_read_file.seek(SeekFrom::Start(needle_offset)));
+                                    let bytes_read = try!(volume_read_file.read(&mut res[..]));
+                                    
                                     let mut new_put = PutRequest::new();
-                                    new_put.set_key(entry.get_key());
+                                    new_put.set_key(key);
                                     new_put.set_value(res.to_vec());
             
                                     let mut new_req = Request::new();

@@ -51,7 +51,7 @@ git = "https://github.com/pingcap/rust-rocksdb.git"
 
 [dependencies.kvproto]
 git = "https://github.com/scottzzq/kvproto.git"
-rev = "a68df65520c51c404e41e5ae4aa895384b01a469"
+rev = "c298ec4e3346fe2e455aa2b04e635d7af1b93a86"
 
 [dependencies.tipb]
 git = "https://github.com/pingcap/tipb.git"
