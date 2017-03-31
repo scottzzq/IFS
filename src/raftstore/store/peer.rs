@@ -31,7 +31,7 @@ use super::engine::{Peekable, Mutable, Snapshot};
 use super::msg::Callback;
 use super::util;
 use super::cmd_resp;
-
+use raft::SnapshotStatus;
 use pd::PdClient;
 
 use std::fs;
@@ -102,13 +102,6 @@ pub struct PendingCmd {
     pub term: u64,
     pub cb: Callback,
 }
-
-
-pub struct CacheItem {
-    pub offset: u64,
-    pub size: u64,
-}
-
 
 #[derive(Default)]
 struct PendingCmdQueue {
@@ -498,9 +491,9 @@ impl Peer {
 
         if unreachable {
             self.raft_group.report_unreachable(to_peer_id);
-            // if msg_type == eraftpb::MessageType::MsgSnapshot {
-            //     self.raft_group.report_snapshot(to_peer_id, SnapshotStatus::Failure);
-            // }
+            if msg_type == eraftpb::MessageType::MsgSnapshot {
+                self.raft_group.report_snapshot(to_peer_id, SnapshotStatus::Failure);
+            }
         }
 
         Ok(())
@@ -749,24 +742,7 @@ impl Peer {
         self.raft_group.apply_conf_change(conf_change);
         res
     }
-
-    //  fn check_data_key(&self, key: &[u8]) -> Result<()> {
-    //     // region key range has no data prefix, so we must use origin key to check.
-    //     try!(Peer::check_key_in_region(key, self.get_store().get_region()));
-
-    //     Ok(())
-    // }
-     /// Check if key in region range [`start_key`, `end_key`).
-    pub fn check_key_in_region(key: &[u8], region: &metapb::Region) -> Result<()> {
-        let end_key = region.get_end_key();
-        let start_key = region.get_start_key();
-        if key >= start_key && (end_key.is_empty() || key < end_key) {
-            Ok(())
-        } else {
-            Err(Error::KeyNotInRegion(key.to_vec(), region.clone()))
-        }
-    }
-
+    
     pub fn check_epoch(&self, req: &RaftCmdRequest) -> Result<()> {
         let (mut check_ver, mut check_conf_ver) = (false, false);
         if req.has_admin_request() {
@@ -961,7 +937,6 @@ impl Peer {
         Ok(())
     }
     
-
     fn propose_normal(&mut self,
                       mut cmd: RaftCmdRequest)
                       -> Result<()> {
@@ -1025,6 +1000,11 @@ impl Peer {
     #[inline]
     pub fn get_store(&self) -> &PeerStorage {
         self.raft_group.get_store()
+    }
+
+    #[inline]
+    pub fn is_applying_snapshot(& mut self) -> bool {
+        self.get_store().is_applying_snapshot()
     }
 
     #[inline]

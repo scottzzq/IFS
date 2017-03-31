@@ -751,13 +751,13 @@ impl<T: Transport, C: PdClient> Store<T, C> {
             has_peer = true;
             let target_peer_id = target.get_id();
             if p.peer_id() < target_peer_id {
-                // if p.is_applying() && !p.mut_store().cancel_applying_snap() {
-                //     warn!("[region {}] Stale peer {} is applying snapshot, will destroy next \
-                //            time.",
-                //           region_id,
-                //           p.peer_id());
-                //     return Ok(false);
-                // }
+                if p.is_applying_snapshot() && !p.mut_store().cancel_applying_snap() {
+                    warn!("[region {}] Stale peer {} is applying snapshot, will destroy next \
+                           time.",
+                          region_id,
+                          p.peer_id());
+                    return Ok(false);
+                }
                 stale_peer = Some(p.peer.clone());
             } else if p.peer_id() > target_peer_id {
                 warn!("target peer id {} is less than {}, msg maybe stale.",
@@ -833,25 +833,6 @@ impl<T: Transport, C: PdClient> Store<T, C> {
                   msg.get_to_peer());
             return Ok(false);
         }
-        // if let Some((_, &exist_region_id)) = self.region_ranges
-        //     .range(Excluded(&enc_start_key(&snap_region)), Unbounded::<&Key>)
-        //     .next() {
-        //     let exist_region = self.region_peers[&exist_region_id].region();
-        //     if enc_start_key(exist_region) < enc_end_key(&snap_region) {
-        //         warn!("region overlapped {:?}, {:?}", exist_region, snap_region);
-        //         return Ok(false);
-        //     }
-        // }
-
-        // for region in &self.pending_regions {
-        //     if enc_start_key(region) < enc_end_key(&snap_region) &&
-        //        enc_end_key(region) > enc_start_key(&snap_region) &&
-        //        // Same region can overlap, we will apply the latest version of snapshot.
-        //        region.get_id() != snap_region.get_id() {
-        //         warn!("pending region overlapped {:?}, {:?}", region, snap_region);
-        //         return Ok(false);
-        //     }
-        // }
         self.pending_regions.push(snap_region);
 
         Ok(true)
@@ -937,19 +918,6 @@ impl<T: Transport, C: PdClient> Store<T, C> {
         }
 
         let res = peer.check_epoch(msg);
-        // if let Err(Error::StaleEpoch(msg, mut new_regions)) = res {
-        //     // Attach the next region which might be split from the current region. But it doesn't
-        //     // matter if the next region is not split from the current region. If the region meta
-        //     // received by the TiKV driver is newer than the meta cached in the driver, the meta is
-        //     // updated.
-        //     if let Some((_, &next_region_id)) = self.region_ranges
-        //         .range(Excluded(&enc_end_key(peer.region())), Unbounded::<&Key>)
-        //         .next() {
-        //         let next_region = self.region_peers[&next_region_id].region();
-        //         new_regions.push(next_region.to_owned());
-        //     }
-        //     return Err(Error::StaleEpoch(msg, new_regions));
-        // }
         res
     }
 

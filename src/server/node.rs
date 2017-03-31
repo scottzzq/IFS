@@ -16,8 +16,6 @@ use std::sync::{Arc, mpsc};
 use std::sync::mpsc::Sender;
 use std::time::Duration;
 use std::process;
-use rand::Rng;
-use rand;
 
 use mio::EventLoop;
 use rocksdb::DB;

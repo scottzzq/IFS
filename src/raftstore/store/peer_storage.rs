@@ -616,7 +616,6 @@ impl PeerStorage{
         if ents.len() == (high - low) as usize || exceeded_max_size {
             return Ok(ents);
         }
-
         // Here means we don't fetch enough entries.
         Err(RaftError::Store(StorageError::Unavailable))
     }
@@ -657,6 +656,15 @@ impl PeerStorage{
                                              self.last_index())));
         }
         Ok(())
+    }
+
+    /// Check whether the storage has finished applying snapshot.
+    #[inline]
+    pub fn is_applying_snapshot(&self) -> bool {
+        match *self.snap_state.borrow() {
+            SnapState::Applying(_) => true,
+            _ => false,
+        }
     }
 
      #[inline]

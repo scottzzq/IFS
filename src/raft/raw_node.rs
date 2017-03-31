@@ -345,6 +345,17 @@ impl<T: Storage> RawNode<T> {
         m.set_entries(RepeatedField::from_vec(vec![e]));
         self.raft.step(m).is_ok();
     }
+    
+    // ReportSnapshot reports the status of the sent snapshot.
+    pub fn report_snapshot(&mut self, id: u64, status: SnapshotStatus) {
+        let rej = status == SnapshotStatus::Failure;
+        let mut m = Message::new();
+        m.set_msg_type(MessageType::MsgSnapStatus);
+        m.set_from(id);
+        m.set_reject(rej);
+        // we don't care if it is ok actually
+        self.raft.step(m).is_ok();
+    }
 
     #[inline]
     pub fn get_store(&self) -> &T {
