@@ -167,6 +167,11 @@ impl<C> Node<C>
         let id = try!(self.pd_client.alloc_id());
         Ok(id)
     }
+    
+    fn alloc_volume_id(&self) -> Result<u64> {
+        let id = try!(self.pd_client.alloc_volume_id());
+        Ok(id)
+    }
 
     fn bootstrap_store(&self, db: &DB) -> Result<u64> {
         let store_id = try!(self.alloc_id());
@@ -176,7 +181,7 @@ impl<C> Node<C>
     }
 
     fn bootstrap_first_region(&self, db: &DB, store_id: u64) -> Result<metapb::Region> {
-        let region_id = try!(self.alloc_id());
+        let region_id = try!(self.alloc_volume_id());
         info!("alloc first region id {} for cluster {}, store {}",
               region_id,
               self.cluster_id,

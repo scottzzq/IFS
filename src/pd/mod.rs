@@ -39,6 +39,9 @@ pub trait PdClient: Send + Sync {
     // Allocate a unique positive id.
     fn alloc_id(&self) -> Result<u64>;
 
+    // Allocate a unique positive id for volume
+    fn alloc_volume_id(&self) -> Result<u64>;
+
     // When the store starts, or some store information changed, it
     // uses put_store to inform pd.
     fn put_store(&self, store: metapb::Store) -> Result<()>;

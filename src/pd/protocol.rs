@@ -47,6 +47,15 @@ impl super::PdClient for RpcClient {
         Ok(resp.get_alloc_id().get_id())
     }
 
+    fn alloc_volume_id(&self) -> Result<u64> {
+        let mut req = self.new_request(pdpb::CommandType::AllocVolumeId);
+        req.set_alloc_volume_id(pdpb::AllocVolumeIdRequest::new());
+
+        let resp = try!(self.send(&req));
+        try!(check_resp(&resp));
+        Ok(resp.get_alloc_volume_id().get_id())
+    }
+
     fn put_store(&self, store: metapb::Store) -> Result<()> {
         let mut put_store = pdpb::PutStoreRequest::new();
         put_store.set_store(store);
