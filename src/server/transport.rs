@@ -1,7 +1,8 @@
-use raftstore::store::{Msg as StoreMsg, Transport, Callback};
+use raftstore::store::{Msg as StoreMsg, Transport, Callback, VolumeCallback};
 use raftstore::{Result as RaftStoreResult, Error as RaftStoreError};
 use kvproto::raft_serverpb::RaftMessage;
 use kvproto::raft_cmdpb::RaftCmdRequest;
+use kvproto::volume_cmdpb::{Request as VolumeCmdRequest};
 use util::transport::SendCh;
 use super::{Msg, ConnData};
 
@@ -25,6 +26,8 @@ pub trait RaftStoreRouter: Send + Clone {
     fn send_command(&self, req: RaftCmdRequest, cb: Callback) -> RaftStoreResult<()> {
         self.try_send(StoreMsg::new_raft_cmd(req, cb))
     }
+
+    fn send_volume_command(&self, req: VolumeCmdRequest, cb: VolumeCallback) -> RaftStoreResult<()>;
 
     fn report_unreachable(&self, region_id: u64, to_peer_id: u64, _: u64) -> RaftStoreResult<()> {
         self.try_send(StoreMsg::ReportUnreachable {
@@ -81,6 +84,11 @@ impl RaftStoreRouter for ServerRaftStoreRouter {
         try!(self.validate_store_id(store_id));
         self.try_send(StoreMsg::new_raft_cmd(req, cb))
     }
+
+    fn send_volume_command(&self, req: VolumeCmdRequest, cb: VolumeCallback) -> RaftStoreResult<()> {
+        self.try_send(StoreMsg::new_volume_cmd(req, cb))
+    }
+
 
     fn report_unreachable(&self,
                           region_id: u64,

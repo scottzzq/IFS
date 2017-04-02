@@ -295,6 +295,21 @@ impl<T: RaftStoreRouter, S: StoreAddrResolver> Server<T, S> {
                 try!(self.ch.raft_router.send_command(msg.take_cmd_req(), cb));
                 Ok(())
             }
+
+            MessageType::VolumeReq =>{
+                debug!("server receive VolumeReq");
+                let on_resp = self.make_response_cb(token, msg_id);
+                let cb = box move |resp| {
+                    let mut resp_msg = Message::new();
+                    resp_msg.set_msg_type(MessageType::VolumeResp);
+                    resp_msg.set_volume_resp(resp);
+                    on_resp.call_box((resp_msg,));
+                    Ok(())
+                 };
+
+                try!(self.ch.raft_router.send_volume_command(msg.take_volume_req(), cb));
+                Ok(())
+            }
             _ => {
                 error!("server receive unknow message");
                 Err(box_err!("unsupported message {:?} for token {:?} with msg id {}",

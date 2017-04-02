@@ -10,18 +10,22 @@ use util::get_disk_stat;
 use rocksdb::DB;
 use mio::{self, EventLoop, EventLoopBuilder, Sender};
 use protobuf;
+use protobuf::RepeatedField;
+use protobuf::Message;
+
 use fs2;
 
 use pd::PdClient;
 use uuid::Uuid;
 use time::{self, Timespec};
-use raftstore::{Result, Error};
+use raftstore::{Result, Error, store};
 use kvproto::metapb;
 use kvproto::pdpb::StoreStats;
 use std::{cmp, u64};
-use protobuf::Message;
 use kvproto::raft_cmdpb::{AdminCmdType, AdminRequest, StatusCmdType, StatusResponse,
                           RaftCmdRequest, RaftCmdResponse};
+use kvproto::volume_cmdpb::{Request as VolumeCmdRequest, Response as VolumeCmdResponse, 
+                          AddRequest as VolumeAddRequest, AddResponse as VolumeAddResponse};
 
 use kvproto::raft_serverpb::{RaftMessage, RaftSnapshotData, RaftTruncatedState, RegionLocalState,
                              PeerState};
@@ -921,6 +925,29 @@ impl<T: Transport, C: PdClient> Store<T, C> {
         res
     }
 
+    fn alloc_id(&self) -> Result<u64> {
+        let id = try!(self.pd_client.alloc_id());
+        Ok(id)
+    }
+
+    fn alloc_volume_id(&self) -> Result<u64> {
+        let id = try!(self.pd_client.alloc_volume_id());
+        Ok(id)
+    }
+
+    fn bootstrap_region(&mut self) -> Result<metapb::Region> {
+        let region_id = try!(self.alloc_volume_id());
+        info!("alloc region id {}, store {}", region_id, self.store_id());
+        let peer_id = try!(self.alloc_id());
+        info!("alloc peer id {} for region {}", peer_id, region_id);
+        let region = try!(store::bootstrap_region(&self.engine, self.store_id(), region_id, peer_id));
+        
+        let mut peer = try!(Peer::create(self, &region));
+        self.region_peers.insert(region_id, peer);
+        info!("Create Peer for region_id:[{}]", region_id);
+        Ok(region)
+    }
+
     fn propose_raft_command(&mut self, msg: RaftCmdRequest, cb: Callback)  -> Result<()> {
         debug!("store propose_raft_command");
         let mut resp = RaftCmdResponse::new();
@@ -943,7 +970,7 @@ impl<T: Transport, C: PdClient> Store<T, C> {
             resp.mut_header().set_error(e.into());
             return cb.call_box((resp,));
         }
-        error!("validate_store_id, is validate store id");
+        info!("validate_store_id, is validate store id");
         // if msg.has_status_request() {
         //     // For status commands, we handle it here directly.
         //     match self.execute_status_command(msg) {
@@ -960,7 +987,7 @@ impl<T: Transport, C: PdClient> Store<T, C> {
             resp.mut_header().set_error(e.into());
             return cb.call_box((resp,));
         }
-        error!("validate_region, is validate region id");
+        info!("validate_region, is validate region id");
         // Note:
         // The peer that is being checked is a leader. It might step down to be a follower later. It
         // doesn't matter whether the peer is a leader or not. If it's not a leader, the proposing
@@ -1034,7 +1061,6 @@ impl<T: Transport, C: PdClient> Store<T, C> {
     }
 }
 
-
 impl<T: Transport, C: PdClient> mio::Handler for Store<T, C> {
     type Timeout = Tick;
     type Message = Msg;
@@ -1051,6 +1077,34 @@ impl<T: Transport, C: PdClient> mio::Handler for Store<T, C> {
             Msg::RaftCmd { send_time, request, callback } => {
                 self.propose_raft_command(request, callback);
             }
+            Msg::VolumeCmd { send_time, request, callback } => {
+                info!("Receive VolumeCmd:[{:?}]", request);
+                let boot_res = self.bootstrap_region();
+                match boot_res{
+                    Ok(region) => {
+                        let mut volume_ids = Vec::with_capacity(1);
+                        volume_ids.push(region.get_id());
+
+                        let mut add_resp = VolumeAddResponse::new();
+                        add_resp.set_volume_ids(volume_ids);
+
+                        let mut resp = VolumeCmdResponse::new();
+                        resp.set_add(add_resp);
+                        callback.call_box((resp,));
+                    }
+                    Err(e) => {
+                        error!("bootstrap_region error {:?}", e);
+                        let mut volume_ids = Vec::with_capacity(1);
+                        let mut add_resp = VolumeAddResponse::new();
+                        add_resp.set_volume_ids(volume_ids);
+
+                        let mut resp = VolumeCmdResponse::new();
+                        resp.set_add(add_resp);
+                        callback.call_box((resp,));
+                    }
+                }
+            }
+
             Msg::ReportUnreachable { region_id, to_peer_id } => {
                 self.on_unreachable(region_id, to_peer_id);
             }

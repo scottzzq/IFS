@@ -15,7 +15,7 @@ mod worker;
 mod snap;
 
 pub use self::config::Config;
-pub use self::msg::{Msg, Callback, Tick};
+pub use self::msg::{Msg, Callback, Tick, VolumeCallback};
 pub use self::transport::Transport;
 pub use self::store::{StoreChannel, Store, create_event_loop};
 pub use self::bootstrap::{bootstrap_store, bootstrap_region, clear_region};
