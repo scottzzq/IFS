@@ -7,7 +7,7 @@ use protobuf::RepeatedField;
 
 use std::cell::RefCell;
 
-use kvproto::metapb::{self, Region};
+use kvproto::metapb::{self, Region, Needle};
 use kvproto::eraftpb::{Entry, Snapshot, ConfState, HardState};
 use kvproto::raft_serverpb::{RaftSnapshotData, RaftLocalState, RegionLocalState, RaftApplyState,
                              PeerState};
@@ -431,9 +431,29 @@ impl PeerStorage{
                             }
                             CmdType::Put => {
                                 let (key, value) = (req.get_put().get_key(), req.get_put().get_value());
-                                self.volume_file.write(value);
-        
-                                let needle_size = value.len() as u64;
+
+                                let mut needle = Needle::new();
+                                needle.set_magic_num(1);
+                                needle.set_size(0);
+                                needle.set_key(key);
+                                needle.set_value(value.to_vec());
+                                //needle body
+                                let needle_body_buffer: Vec<u8> = try!(needle.write_to_bytes());
+
+                                //magic 
+                                //size
+                                //flag
+                                //body
+                                let mut needle_header_buffer: Vec<u8> = vec![0;24];
+                                BigEndian::write_u64(&mut needle_header_buffer[0..8], 1);
+                                BigEndian::write_u64(&mut needle_header_buffer[8..16], needle_body_buffer.len() as u64);
+                                BigEndian::write_u64(&mut needle_header_buffer[16..24], 1);     
+
+                                self.volume_file.write_all(&needle_header_buffer);
+                                self.volume_file.write_all(&needle_body_buffer);
+
+                                //包括header和body
+                                let needle_size = needle_header_buffer.len() as u64 + needle_body_buffer.len() as u64;
                                 let needle_offset = self.volume_file_offset;
                                 let cache_item = CacheItem{
                                     offset: needle_offset,
@@ -514,6 +534,9 @@ impl PeerStorage{
                 unsafe { res.set_len(item.size as usize); };
                 self.volume_read_file.seek(SeekFrom::Start(item.offset));
                 let bytes_read = self.volume_read_file.read(&mut res[..]);
+
+                let needle= protobuf::parse_from_bytes::<Needle>(&res[8 + 8 + 8..]).unwrap();
+                res = needle.get_value().to_vec();            
             }
         }
         res                        
@@ -578,9 +601,12 @@ impl PeerStorage{
                                     try!(volume_read_file.seek(SeekFrom::Start(needle_offset)));
                                     let bytes_read = try!(volume_read_file.read(&mut res[..]));
                                     
+                                    
+                                    let needle= try!(protobuf::parse_from_bytes::<Needle>(&res[8 + 8 + 8..]));
+
                                     let mut new_put = PutRequest::new();
-                                    new_put.set_key(key);
-                                    new_put.set_value(res.to_vec());
+                                    new_put.set_key(needle.get_key());
+                                    new_put.set_value(needle.get_value().to_vec());
             
                                     let mut new_req = Request::new();
                                     new_req.set_cmd_type(CmdType::Put);
