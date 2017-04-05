@@ -396,7 +396,7 @@ impl PeerStorage{
         // }
         let handle = try!(rocksdb::get_cf_handle(&self.engine, CF_RAFT));
         for entry in entries {
-            info!("PeerStorage append origin Entry:[{:?}]", entry);
+            //info!("PeerStorage append origin Entry:[{:?}]", entry);
             if !entry.has_data(){
                 try!(ctx.wb.put_msg_cf(handle,
                     &keys::raft_log_key(self.get_region_id(), entry.get_index()),
@@ -476,7 +476,7 @@ impl PeerStorage{
                     new_raft_cmd.set_requests(RepeatedField::from_vec(new_reqs));
 
                     new_entry.set_data(try!(new_raft_cmd.write_to_bytes()));
-                    info!("PeerStorage append Entry append new :[{:?}]", new_entry);
+                    //info!("PeerStorage append Entry append new :[{:?}]", new_entry);
                     try!(ctx.wb.put_msg_cf(handle,
                                     &keys::raft_log_key(self.get_region_id(), new_entry.get_index()),
                                     &new_entry));
@@ -484,7 +484,7 @@ impl PeerStorage{
                 }
                  //ConfChange直接写入
                  eraftpb::EntryType::EntryConfChange => {
-                    info!("PeerStorage append new Entry:[{:?}]", entry);
+                    //info!("PeerStorage append new Entry:[{:?}]", entry);
                     try!(ctx.wb.put_msg_cf(handle,
                                    &keys::raft_log_key(self.get_region_id(), entry.get_index()),
                                    entry));
@@ -506,8 +506,21 @@ impl PeerStorage{
         Ok(last_index)
     }
 
+    pub fn do_get(&mut self, key: u64) -> Vec<u8> {
+        let mut res = Vec::new();
+        if self.needle_cache.contains_key(&key){
+            if let Some(item) = self.needle_cache.get(&key){
+                res = Vec::<u8>::with_capacity(item.size as usize);
+                unsafe { res.set_len(item.size as usize); };
+                self.volume_read_file.seek(SeekFrom::Start(item.offset));
+                let bytes_read = self.volume_read_file.read(&mut res[..]);
+            }
+        }
+        res                        
+    }
+
+
     pub fn entries(&self, low: u64, high: u64, max_size: u64) -> raft::Result<Vec<Entry>> {
-        info!("Peer Storage entries, low:[{:?}] high:[{:?}]", low, high);
         try!(self.check_range(low, high));
         let mut ents = Vec::with_capacity((high - low) as usize);
         let mut total_size: u64 = 0;
@@ -600,7 +613,7 @@ impl PeerStorage{
                 new_entry = entry;
             }   
 
-            info!("PeerStorage entries() New Entry:[{:?}]", new_entry);
+            //info!("PeerStorage entries() New Entry:[{:?}]", new_entry);
             next_index += 1;
             total_size += new_entry.compute_size() as u64;
             exceeded_max_size = total_size > max_size;
@@ -1116,13 +1129,11 @@ fn build_snap_file(f: &mut SnapFile,
 
 pub fn do_snapshot(mgr: SnapManager, snap: &DbSnapshot, region_id: u64) -> raft::Result<Snapshot> {
     debug!("[region {}] begin to generate a snapshot", region_id);
-
     // let apply_state: RaftApplyState =
     //     match try!(snap.get_msg_cf(CF_RAFT, &keys::apply_state_key(region_id))) {
     //         None => return Err(box_err!("could not load raft state of region {}", region_id)),
     //         Some(state) => state,
     //     };
-
     //apply 
     let mut apply_state = RaftApplyState::new();
     apply_state.set_applied_index(RAFT_INIT_LOG_INDEX);

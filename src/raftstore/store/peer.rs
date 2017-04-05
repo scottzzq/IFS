@@ -1001,7 +1001,7 @@ impl Peer {
     pub fn get_store(&self) -> &PeerStorage {
         self.raft_group.get_store()
     }
-
+    
     #[inline]
     pub fn is_applying_snapshot(& mut self) -> bool {
         self.get_store().is_applying_snapshot()
@@ -1363,131 +1363,22 @@ impl Peer {
     fn do_get(&mut self, ctx: &ExecContext, req: &Request) -> Result<Response> {
         // TODO: the get_get looks wried, maybe we should figure out a better name later.
         let key = req.get_get().get_key();
-        //try!(self.check_data_key(key));
+        let res = self.mut_store().do_get(key);
         let mut resp = Response::new();
-        // let mut res;
-        // if self.needle_cache.contains_key(&key){
-        //     if let Some(item) = self.needle_cache.get(&key){
-        //         debug!("do_get key:[{}] exists! offset:[{}] size:[{}] volume_file:[{:?}]", 
-        //             key, item.offset, item.size, self.volume_read_file);
-        //         //let mut file_copy = try!(self.volume_read_file.try_clone());
-        //         res = Vec::<u8>::with_capacity(item.size as usize);
-        //         unsafe { res.set_len(item.size as usize); }
-        //         try!(self.volume_read_file.seek(SeekFrom::Start(item.offset)));
-        //         debug!("file:[{:?}] seek success!", self.volume_read_file);
-        //         let bytes_read = try!(self.volume_read_file.read(&mut res[..]));
-        //         resp.mut_get().set_value(res.to_vec());
-        //     }
-        // }else{
-        //     debug!("do_get key:[{}] not exists!", key);
-        // }
-        
-        // let res = if req.get_get().has_cf() {
-        //     let cf = req.get_get().get_cf();
-        //     // TODO: check whether cf exists or not.
-        //     ctx.snap.get_value_cf(cf, &keys::data_key(key)).unwrap_or_else(|e| {
-        //         panic!("{} failed to get {} with cf {}: {:?}",
-        //                self.tag,
-        //                escape(key),
-        //                cf,
-        //                e)
-        //     })
-        // } else {
-        //     ctx.snap
-        //         .get_value(&keys::data_key(key))
-        //         .unwrap_or_else(|e| panic!("{} failed to get {}: {:?}", self.tag, escape(key), e))
-        // };
+        resp.mut_get().set_value(res.to_vec());
         Ok(resp)
     }
 
     fn do_put(&mut self, ctx: &ExecContext, req: &Request) -> Result<Response> {
         let (key, value) = (req.get_put().get_key(), req.get_put().get_value());
-        // self.volume_file.write(value);
-
-        // let needle_size = value.len() as u64;
-        // let needle_offset = self.volume_file_offset;
-        // let cache_item = CacheItem{
-        //     offset: needle_offset,
-        //     size: needle_size,
-        // };
-
-        // let mut buf = vec![0;24];
-        // BigEndian::write_u64(&mut buf[0..8], key);
-        // BigEndian::write_u64(&mut buf[8..16], cache_item.offset);
-        // BigEndian::write_u64(&mut buf[16..24], cache_item.size);
-        // self.volume_idx_file.write(&buf);
-        // self.volume_file_offset += needle_size;
-        // self.needle_cache.insert(key, cache_item);
         let resp = Response::new();
-        // let key = keys::data_key(key);
-        // if let Some(diff) = self.size_diff_hint.checked_add(key.len() as u64) {
-        //     self.size_diff_hint = diff;
-        // }
-        // if let Some(diff) = self.size_diff_hint.checked_add(value.len() as u64) {
-        //     self.size_diff_hint = diff;
-        // }
-        // self.size_diff_hint += key.len() as u64;
-        // self.size_diff_hint += value.len() as u64;
-        
-        // if req.get_put().has_cf() {
-        //     let cf = req.get_put().get_cf();
-        //     // TODO: check whether cf exists or not.
-        //     debug!("do_put cf:[{}] key:[{}] value:[{}] ", cf, escape(&key), escape(value));
-        //     rocksdb::get_cf_handle(&self.engine, cf)
-        //         .and_then(|handle| ctx.wb.put_cf(handle, &key, value))
-        //         .unwrap_or_else(|e| {
-        //             panic!("{} failed to write ({}, {}) to cf {}: {:?}",
-        //                    self.tag,
-        //                    escape(&key),
-        //                    escape(value),
-        //                    cf,
-        //                    e)
-        //         });
-        // } else {
-        // debug!("do_put key:[{}] value:[{}] volume_file_offset:[{}] needle_size:[{}]", 
-        //     key, escape(value), needle_offset, needle_size);
-
-        //     ctx.wb.put(&key, value).unwrap_or_else(|e| {
-        //         panic!("{} failed to write ({}, {}): {:?}",
-        //                self.tag,
-        //                escape(&key),
-        //                escape(value),
-        //                e);
-        //     });
-        // }
         Ok(resp)
     }
 
     fn do_delete(&mut self, ctx: &ExecContext, req: &Request) -> Result<Response> {
         let key = req.get_delete().get_key();
-        //try!(self.check_data_key(key));
-
-        // let key = keys::data_key(key);
-        // // since size_diff_hint is not accurate, so we just skip calculate the value size.
-        // let klen = key.len() as u64;
-        // if self.size_diff_hint > klen {
-        //     self.size_diff_hint -= klen;
-        // } else {
-        //     self.size_diff_hint = 0;
-        // }
         let resp = Response::new();
         debug!("do_delete key:[{}]", key);
-        // if req.get_delete().has_cf() {
-        //     let cf = req.get_delete().get_cf();
-        //     // TODO: check whether cf exists or not.
-        //     rocksdb::get_cf_handle(&self.engine, cf)
-        //         .and_then(|handle| ctx.wb.delete_cf(handle, &key))
-        //         .unwrap_or_else(|e| {
-        //             panic!("{} failed to delete {}: {:?}", self.tag, escape(&key), e)
-        //         });
-        //     // lock cf is compact periodically.
-            
-        // } else {
-        //     ctx.wb.delete(&key).unwrap_or_else(|e| {
-        //         panic!("{} failed to delete {}: {:?}", self.tag, escape(&key), e)
-        //     });
-        // }
-
         Ok(resp)
     }
 }
