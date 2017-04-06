@@ -12,7 +12,7 @@ use kvproto::raft_cmdpb::{RaftCmdRequest, RaftCmdResponse, ChangePeerRequest, Cm
                           TransferLeaderRequest, TransferLeaderResponse};
 
 use rocksdb::{DB, WriteBatch, Writable, CFHandle};
-use kvproto::metapb::{self, Region};
+use kvproto::metapb::{self, Region, Needle};
 use raftstore::store::peer_storage::{PeerStorage, write_peer_state, ApplySnapResult};
 use super::store::Store;
 use raftstore::{Result, Error};
@@ -1346,7 +1346,7 @@ impl Peer {
             let mut resp = try!(match cmd_type {
                 CmdType::Get => self.do_get(ctx, req),
                 CmdType::Put => self.do_put(ctx, req),
-                CmdType::Delete => self.do_get(ctx, req),
+                CmdType::Delete => self.do_delete(ctx, req),
                 CmdType::Snap => self.do_delete(ctx, req),
                 CmdType::Invalid => Err(box_err!("invalid cmd type, message maybe currupted")),
             });
@@ -1363,9 +1363,9 @@ impl Peer {
     fn do_get(&mut self, ctx: &ExecContext, req: &Request) -> Result<Response> {
         // TODO: the get_get looks wried, maybe we should figure out a better name later.
         let key = req.get_get().get_key();
-        let res = self.mut_store().do_get(key);
+        let needle = self.mut_store().do_get(key);
         let mut resp = Response::new();
-        resp.mut_get().set_value(res.to_vec());
+        resp.mut_get().set_value(needle.get_value().to_vec());
         Ok(resp)
     }
 
@@ -1377,7 +1377,8 @@ impl Peer {
 
     fn do_delete(&mut self, ctx: &ExecContext, req: &Request) -> Result<Response> {
         let key = req.get_delete().get_key();
-        let resp = Response::new();
+        let mut resp = Response::new();
+        let res = self.mut_store().do_delete(key);
         debug!("do_delete key:[{}]", key);
         Ok(resp)
     }

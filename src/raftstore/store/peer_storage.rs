@@ -449,6 +449,7 @@ impl PeerStorage{
                                 BigEndian::write_u64(&mut needle_header_buffer[8..16], needle_body_buffer.len() as u64);
                                 BigEndian::write_u64(&mut needle_header_buffer[16..24], 1);     
 
+                                self.volume_file.seek(SeekFrom::Start((self.volume_file_offset)));
                                 self.volume_file.write_all(&needle_header_buffer);
                                 self.volume_file.write_all(&needle_body_buffer);
 
@@ -526,21 +527,41 @@ impl PeerStorage{
         Ok(last_index)
     }
 
-    pub fn do_get(&mut self, key: u64) -> Vec<u8> {
-        let mut res = Vec::new();
+    pub fn do_get(&mut self, key: u64) -> Needle {
+        let mut needle = Needle::new();
         if self.needle_cache.contains_key(&key){
             if let Some(item) = self.needle_cache.get(&key){
-                res = Vec::<u8>::with_capacity(item.size as usize);
+                let mut res = Vec::<u8>::with_capacity(item.size as usize);
                 unsafe { res.set_len(item.size as usize); };
                 self.volume_read_file.seek(SeekFrom::Start(item.offset));
                 let bytes_read = self.volume_read_file.read(&mut res[..]);
 
-                let needle= protobuf::parse_from_bytes::<Needle>(&res[8 + 8 + 8..]).unwrap();
-                res = needle.get_value().to_vec();            
+                let magic : u64 = res[0..8].to_vec().into_iter().fold(0u64, |val, byte| val << 8 | byte as u64);
+                let size : u64 = res[8..16].to_vec().into_iter().fold(0u64, |val, byte| val << 8 | byte as u64);
+                let flag : u64 = res[16..24].to_vec().into_iter().fold(0u64, |val, byte| val << 8 | byte as u64);
+                
+                if flag == 1{
+                    needle = protobuf::parse_from_bytes::<Needle>(&res[8 + 8 + 8..]).unwrap();
+                }
+                info!("get key:[{:?}] magic:[{:?}] size:[{:?}] flag:[{:?}]", key, magic, size, flag);
+            }
+        }
+        needle                      
+    }
+
+    pub fn do_delete(&mut self, key: u64) -> Vec<u8> {
+        let mut res = Vec::new();
+        if self.needle_cache.contains_key(&key){
+            if let Some(item) = self.needle_cache.get(&key){
+                self.volume_file.seek(SeekFrom::Start((item.offset + 8 + 8)));
+                let mut buf = vec![0;8];
+                BigEndian::write_u64(&mut buf[0..8], 0);
+                self.volume_file.write(&buf);          
             }
         }
         res                        
     }
+
 
 
     pub fn entries(&self, low: u64, high: u64, max_size: u64) -> raft::Result<Vec<Entry>> {
