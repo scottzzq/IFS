@@ -23,4 +23,7 @@ python cmd.py, 可以自己修改cmd.py <br>
 - [x] 下载图片
 - [x] 删除图片
 - [x] 动态增加Volume
+- [x] 动态增加store机器
 - [ ] Compact Volume，将已经删除的图片Needle文件回收空间
+- [ ] go实现http proxy，提供http上传、下载、删除接口
+- [ ] 图片元信息存储，filename和volumeid&key映射关系，考虑使用类redis的硬盘存储介质，360开源[pika](https://github.com/Qihoo360/pika)可能是一个不错的选择
