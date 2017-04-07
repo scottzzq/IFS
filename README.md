@@ -16,3 +16,11 @@ sh start_cluster.sh <br>
 git clone https://github.com/scottzzq/kvproto <br> 
 cd kvproto/py_src/ <br>
 python cmd.py, 可以自己修改cmd.py <br>
+
+## 优化
+- [x] 优化raftlog存储格式，考虑到图片数据文件较大，故总是将raftlog中的PUT请求中的数据转换Needle写入volume文件中，raftlog只保存Needle在volume中的offset&size
+- [x] 上传图片
+- [x] 下载图片
+- [x] 删除图片
+- [x] 动态增加Volume
+- [] Compact Volume，将已经删除的图片Needle文件回收空间
