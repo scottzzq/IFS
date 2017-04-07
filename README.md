@@ -23,4 +23,4 @@ python cmd.py, 可以自己修改cmd.py <br>
 - [x] 下载图片
 - [x] 删除图片
 - [x] 动态增加Volume
-- [] Compact Volume，将已经删除的图片Needle文件回收空间
+- [ ] Compact Volume，将已经删除的图片Needle文件回收空间
