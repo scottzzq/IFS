@@ -18,7 +18,7 @@ cd kvproto/py_src/ <br>
 python cmd.py, 可以自己修改cmd.py <br>
 
 ## 架构
-[架构图](https://raw.githubusercontent.com/scottzzq/IFS/master/IFS.png)
+![架构图](https://raw.githubusercontent.com/scottzzq/IFS/master/IFS.png)
 
 ## 优化
 - [x] 优化raftlog存储格式，考虑到图片数据文件较大，故总是将raftlog中的PUT请求中的数据转换Needle写入volume文件中，raftlog只保存Needle在volume中的offset&size
