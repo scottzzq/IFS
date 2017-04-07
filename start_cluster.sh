@@ -8,7 +8,7 @@ mkdir -p ./data/volumes
 RUST_BACKTRACE=full ./tikv-server -C config.toml &
 cd ..
 
-sleep 5
+sleep 1
 
 mkdir -p store2
 cp ./target/debug/tikv-server ./store2
@@ -19,7 +19,7 @@ mkdir -p ./data/volumes
 RUST_BACKTRACE=full ./tikv-server -C config.toml &
 cd ..
 
-
+sleep 1
 
 mkdir -p store3
 cp ./target/debug/tikv-server ./store3
