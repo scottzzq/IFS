@@ -1,5 +1,5 @@
 # IFS
-image storage system，基于[tikv](https://github.com/pingcap/tikv)实现的分布式小文件(图片)存储系统 <br>
+image storage system，基于[tikv](https://github.com/pingcap/tikv),同时参考[bfs](https://github.com/Terry-Mao/bfs)实现的分布式小文件(图片)存储系统 <br>
 ##运行步骤 <br>
 ###1、编译、启动pd <br>
 git clone https://github.com/scottzzq/pd  <br>
